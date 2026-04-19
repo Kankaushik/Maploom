@@ -221,4 +221,67 @@ python maploom_flask/app.py
 
 ---
 
+## 13. Version Control — `.gitignore`
+
+A `.gitignore` was added at the repository root to ensure only source code and configuration templates are committed. The following categories are excluded:
+
+### Python Artifacts
+| Pattern | Reason |
+|---|---|
+| `__pycache__/` | Bytecode cache directories generated at runtime |
+| `*.py[cod]`, `*.pyo`, `*.pyd`, `*.pyc` | Compiled Python bytecode — platform-specific, not portable |
+
+### Virtual Environments
+| Pattern | Reason |
+|---|---|
+| `.venv/`, `venv/`, `env/`, `ENV/` | Project-local Python environments — recreated via `pip install -r requirements.txt` |
+
+### Secrets & Environment Config
+| Pattern | Reason |
+|---|---|
+| `.env` | Contains `FLASK_SECRET` and `DATABASE_URL` — must never be committed |
+| `*.env` | Any other env-suffixed secret files |
+
+> `.env.example` **is** committed as a safe template showing required variable names without values.
+
+### Database Files
+| Pattern | Reason |
+|---|---|
+| `instance/` | Flask default instance folder (may hold `maps.db` when run via `flask run`) |
+| `*.db`, `*.sqlite3` | SQLite database files — runtime data, not source |
+
+### Logs & Build Outputs
+| Pattern | Reason |
+|---|---|
+| `*.log`, `logs/` | Application log files |
+| `dist/`, `build/`, `*.egg-info/`, `*.egg`, `.eggs/` | Python packaging artifacts |
+
+### Testing Artifacts
+| Pattern | Reason |
+|---|---|
+| `.pytest_cache/` | pytest's internal cache |
+| `.coverage`, `htmlcov/` | Coverage report files |
+
+### IDE & OS Files
+| Pattern | Reason |
+|---|---|
+| `.vscode/`, `.idea/` | Editor-specific settings (optional to commit; excluded here for neutrality) |
+| `*.swp`, `*.swo` | Vim swap files |
+| `.DS_Store`, `Thumbs.db` | macOS and Windows filesystem metadata |
+
+### What IS committed
+The following files are intentionally tracked:
+
+| File | Purpose |
+|---|---|
+| `app.py`, `auth.py`, `db.py`, `models.py`, `sanitizer.py` | Application source code |
+| `__init__.py` | Package initializer |
+| `requirements.txt` | Dependency manifest |
+| `.env.example` | Safe template for required environment variables |
+| `static/*.html`, `static/*.png` | Frontend assets |
+| `PROJECT_REPORT.md` | Project documentation |
+| `.gitignore` | This exclusion list itself |
+
+---
+
 *Report generated from source code analysis of the `maploom_flask` workspace.*
