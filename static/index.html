@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login | Map Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-600 to-blue-200 overflow-hidden relative">
+  <!-- Background Map -->
+  <div class="absolute inset-0 opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-center bg-cover"></div>
+
+  <!-- Login Card -->
+  <div class="relative bg-white border border-gray-200 shadow-2xl rounded-3xl w-full max-w-md sm:max-w-3xl mx-4 sm:mx-6 grid grid-cols-1 md:grid-cols-2 overflow-hidden">
+    
+    <!-- Left: Branding -->
+    <div class="p-4 sm:p-6 flex flex-col items-center justify-center space-y-4">
+      <img src="Maploom_logo.png" alt="Logo" class="w-full h-32 sm:h-40 md:h-48 object-contain" />
+      <h3 class="text-xl md:text-2xl font-semibold text-gray-800 text-center">Where Maps Become Living Threads of Information</h3>
+      <!-- <p class="text-sm md:text-base text-gray-600 text-center">
+        Where Maps Become Living Threads of Information
+      </p> -->
+    </div>
+
+    <!-- Right: Login Form -->
+    <div class="p-4 sm:p-6 flex flex-col justify-center">
+      <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 text-center">Login</h2>
+      <form id="loginForm" class="space-y-4" autocomplete="off" novalidate>
+        <!-- Username -->
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+            <i class="bi bi-person-fill"></i>
+          </span>
+          <input id="userId" type="text" placeholder="Username" required class="w-full pl-12 pr-4 py-3 bg-gray-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-base" />
+        </div>
+
+        <!-- Password -->
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+            <i class="bi bi-lock-fill"></i>
+          </span>
+          <input id="password" type="password" placeholder="Password" required class="w-full pl-12 pr-12 py-3 bg-gray-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-base" />
+          <button type="button" id="togglePwd" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
+            <i class="bi bi-eye-slash-fill" id="eyeOff"></i>
+            <i class="bi bi-eye-fill hidden" id="eyeOn"></i>
+          </button>
+        </div>
+
+        <!-- Remember Me -->
+        <label class="inline-flex items-center text-sm">
+          <input type="checkbox" class="form-checkbox h-4 w-4 text-blue-600" />
+          <span class="ml-2 text-gray-700">Remember me</span>
+        </label>
+
+        <!-- Submit Button -->
+        <button type="submit" class="group relative w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold overflow-hidden shadow-lg transform transition hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300">
+          <span class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></span>
+          <div class="relative flex items-center justify-center">
+            <span>Login</span>
+            <svg class="ml-2 h-5 w-5 transform translate-x-0 group-hover:translate-x-1 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </div>
+        </button>
+
+        <!-- Error Message -->
+        <p id="errorMsg" class="hidden text-center text-red-500 text-sm mt-2">
+          Invalid credentials, please try again.
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Script -->
+  <script>
+    // Toggle password visibility
+    const pwd = document.getElementById('password');
+    const eyeOff = document.getElementById('eyeOff');
+    const eyeOn = document.getElementById('eyeOn');
+    document.getElementById('togglePwd').onclick = () => {
+      const showing = pwd.type === 'password';
+      pwd.type = showing ? 'text' : 'password';
+      eyeOff.classList.toggle('hidden');
+      eyeOn.classList.toggle('hidden');
+    };
+
+    // Handle login form submission
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('userId').value.trim();
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        document.getElementById('errorMsg').classList.remove('hidden');
+        return;
+      }
+
+      // Redirect by role
+      if (data.role === 'admin') {
+        location.href = 'admin.html';
+      } else {
+        location.href = 'user.html';
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>Admin – Map Editor</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@geoman-io/leaflet-geoman-free@2.18.3/dist/leaflet-geoman.css"
+    />
+
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+      }
+
+      #map {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+      }
+
+      #loadingSpinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-size: 16px;
+        z-index: 4000;
+        display: none;
+        user-select: none;
+      }
+
+      #bar {
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fffefc;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px;
+        max-width: 95vw;
+        z-index: 1200;
+        user-select: none;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #1e7fd4 transparent;
+      }
+
+      #bar::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      #bar::-webkit-scrollbar-thumb {
+        background-color: #1e7fd4;
+        border-radius: 3px;
+      }
+
+      #brandLogoAdmin {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        padding: 0 8px 0 0;
+        cursor: pointer;
+      }
+
+      #brandLogoAdmin img {
+        height: 36px;
+        width: auto;
+        display: block;
+        border-radius: 6px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      }
+
+      #bar > * {
+        font-size: 14px;
+        border: 1px solid #ccd1dd;
+        border-radius: 8px;
+        background: #fff;
+        padding: 6px 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: 0.25s;
+        color: #1e1e1e;
+      }
+
+      #bar > *:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        color: #555;
+      }
+
+      #bar > *:hover:not(:disabled) {
+        background: #1e7fd4;
+        color: #fff;
+        border-color: #1e7fd4;
+      }
+
+      #bar label.upload {
+        background: #1e7fd4;
+        color: #fff;
+        border: none;
+      }
+
+      #bar input[type="file"] {
+        display: none;
+      }
+
+      #toggleBulkBtn {
+        background: #6c757d;
+        color: #fff;
+        border-radius: 10px;
+        border: none;
+        padding: 10px 20px;
+        font-size: 14px;
+      }
+
+      #toggleBulkBtn.active {
+        background: #545b62;
+      }
+
+      #toggleBulkBtn:hover {
+        background: #565e64;
+      }
+
+      .leaflet-top.leaflet-left,
+      .leaflet-top.leaflet-right {
+        top: 102px !important;
+        z-index: 1300;
+      }
+
+      .leaflet-control-zoom {
+        top: 102px !important;
+        z-index: 1300;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        z-index: 1300;
+      }
+
+      .modal.hide {
+        display: none !important;
+      }
+
+      .card {
+        width: 92%;
+        max-width: 540px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        animation: slide 0.25s ease forwards;
+        user-select: none;
+        position: fixed;
+        margin: 0;
+      }
+
+      @keyframes slide {
+        from {
+          opacity: 0.2;
+          transform: translateY(24px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .card header {
+        padding: 22px 26px 18px;
+        font-size: 20px;
+        font-weight: 600;
+        border-bottom: 1px solid #f0f2f6;
+        cursor: move;
+        position: relative;
+      }
+
+      .card header .close {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #444;
+      }
+
+      .card .body {
+        flex: 1;
+        overflow: auto;
+        padding: 0 26px 24px;
+      }
+
+      .card footer {
+        padding: 14px 26px;
+        border-top: 1px solid #f0f2f6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+
+      .btn {
+        border-radius: 10px;
+        border: none;
+        padding: 10px 20px;
+        font: 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        cursor: pointer;
+        transition: 0.25s;
+        color: #1e1e1e;
+      }
+
+      .btn.cancel {
+        background: #f1f3f5;
+        color: #333;
+      }
+
+      .btn.cancel:hover {
+        filter: brightness(1.07);
+      }
+
+      .btn.save {
+        background: #1e7fd4;
+        color: #fff;
+      }
+
+      .btn.save:hover {
+        background: #1762b8;
+      }
+
+      .btn.del {
+        background: #e03131;
+        color: #fff;
+      }
+
+      .btn.del:hover {
+        background: #a32424;
+      }
+
+      .btn.fb {
+        background: #1e7fd4;
+        color: #fff;
+      }
+
+      .btn.fb:hover {
+        background: #1762b8;
+      }
+
+      .field {
+        position: relative;
+        margin: 20px 0;
+      }
+
+      .field input,
+      .field textarea {
+        width: 100%;
+        border: 1px solid #ccd1dd;
+        border-radius: 10px;
+        background: #f9fafc;
+        font: 15px/1.45 "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 16px 14px;
+      }
+
+      .field label {
+        position: absolute;
+        left: 16px;
+        top: 17px;
+        color: #7a86a2;
+        font: 15px/1 "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        pointer-events: none;
+        transition: all 0.15s;
+        background: #fffefc;
+        padding: 0 6px;
+      }
+
+      .field input:focus,
+      .field textarea:focus {
+        border-color: #1e7fd4;
+        outline: none;
+      }
+
+      .field input:focus + label,
+      .field textarea:focus + label,
+      .field input:not(:placeholder-shown) + label,
+        .field textarea:not(:placeholder-shown) + label {
+        top: -9px;
+        font-size: 12px;
+        background: #fffefc;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+      }
+
+      .color-row {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .color-row .field {
+        flex: 1 1 120px;
+        margin: 0;
+      }
+
+      .color-row input {
+        padding: 8px;
+        width: 100%;
+      }
+
+      .fb-row {
+        background: #f8f9fb;
+        border: 1px solid #e1e6f0;
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+        font-size: 14px;
+      }
+
+      .fb-row small {
+        color: #6c7587;
+        font-size: 12px;
+      }
+
+      .fb-row .actions {
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
+      }
+
+      .fb-row .actions button {
+        padding: 4px 10px;
+        font-size: 13px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        background: #e1e6f0;
+      }
+
+      .fb-row .actions button.show {
+        background: #1e7fd4;
+        color: #fff;
+      }
+
+      .fb-row .actions button.done {
+        background: #e03131;
+        color: #fff;
+      }
+
+      /* Bulk editor */
+      #bulkEditor {
+        position: fixed;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fffefc;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        max-width: 90vw;
+        max-height: 300px;
+        overflow: hidden;
+        font-size: 13px;
+        display: none;
+        z-index: 1300;
+      }
+
+      #bulkHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e9edf6;
+        background: #f7f9ff;
+      }
+
+      #bulkTitle {
+        font-weight: 700;
+      }
+
+      #bulkActions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      #bulkCloseBtn {
+        border: none;
+        background: #e9ecef;
+        color: #333;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #bulkCloseBtn:hover {
+        background: #dde2e6;
+      }
+
+      #bulkSaveBtn {
+        border: none;
+        background: #1e7fd4;
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      #bulkSaveBtn:hover {
+        background: #1762b8;
+      }
+
+      #bulkBody {
+        padding: 12px;
+        overflow: auto;
+        max-height: 220px;
+      }
+
+      #bulkTable {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      #bulkTable th,
+      #bulkTable td {
+        border: 1px solid #ccd1dd;
+        padding: 4px 6px;
+        text-align: left;
+      }
+
+      #bulkTable th {
+        background: #e6f0ff;
+        position: sticky;
+        top: 0;
+      }
+
+      #bulkBody input[type="text"],
+      #bulkBody input[type="color"] {
+        width: 100%;
+        border: none;
+        background: transparent;
+        padding: 2px 4px;
+      }
+
+      #bulkFooter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-top: 1px solid #e9edf6;
+        background: #f7f9ff;
+      }
+
+      #bulkFooter button {
+        margin: 0 2px;
+        padding: 6px 10px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      #exportMetaBtn {
+        background: #6c757d;
+        color: #fff;
+      }
+
+      #importMetaBtn {
+        background: #0ca678;
+        color: #fff;
+      }
+
+      #exportMetaBtn:hover,
+      #importMetaBtn:hover {
+        filter: brightness(1.05);
+      }
+
+      #versionWrapper {
+        margin-left: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      #versionWrapper select {
+        border-radius: 6px;
+        border: 1px solid #ccd1dd;
+        padding: 6px 10px;
+        font-size: 14px;
+      }
+
+      #versionWrapper button {
+        background: #6c757d;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 14px;
+      }
+
+      #versionWrapper button:hover {
+        background: #565e64;
+      }
+
+      @media (max-width: 768px) {
+        #bar {
+          max-width: 100vw;
+          padding: 6px 8px;
+        }
+
+        #brandLogoAdmin img {
+          height: 28px;
+        }
+
+        #bar > * {
+          font-size: 13px;
+          padding: 6px 10px;
+        }
+
+        #bulkEditor {
+          max-width: 96vw;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="bar" role="banner" aria-label="Admin Map Controls">
+      <div id="brandLogoAdmin" aria-hidden="true">
+        <img src="Maploom_logo.png" alt="Brand Logo" />
+      </div>
+
+      <label class="upload" for="svgFile">
+        Upload SVG/JPG/PNG/PDF
+        <input
+          id="svgFile"
+          type="file"
+          accept=".svg,.jpg,.jpeg,.png,.pdf"
+        />
+      </label>
+
+      <input
+        id="mapName"
+        placeholder="New map name"
+        aria-label="New map name"
+      />
+      <select id="mapSelect" aria-label="Select map">
+        <option value="">Select a map</option>
+      </select>
+      <button class="btn save" id="saveBtn" type="button">Save</button>
+      <button class="btn del" id="delBtn" type="button">Delete</button>
+      <button class="btn fb" id="fbBtn" type="button">
+        Feedback (<span id="fbCnt">0</span>)
+      </button>
+      <button id="toggleBulkBtn" type="button" aria-expanded="false">
+        Toggle Bulk Editor
+      </button>
+
+      <div id="versionWrapper" style="display: none">
+        <label for="versionSelect">Rollback to Version:</label>
+        <select id="versionSelect" aria-label="Select version">
+          <option value="">Select version</option>
+        </select>
+        <button id="rollbackBtn" type="button">Rollback</button>
+      </div>
+    </div>
+
+    <div id="map" role="main" tabindex="0" aria-label="Map"></div>
+    <div id="loadingSpinner">Loading…</div>
+
+    <!-- Meta Modal -->
+    <div
+      id="metaModal"
+      class="modal hide"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="metaTitle"
+      tabindex="-1"
+    >
+      <form id="metaForm" class="card" novalidate>
+        <header id="metaTitle">
+          Edit Area
+          <button type="button" class="close" aria-label="Close">
+            &times;
+          </button>
+        </header>
+        <div class="body">
+          <div class="field">
+            <input
+              name="code"
+              placeholder=" "
+              required
+              autocomplete="off"
+              aria-required="true"
+            />
+            <label>Area Code *</label>
+          </div>
+          <div class="field">
+            <input name="title" placeholder=" " autocomplete="off" />
+            <label>Title</label>
+          </div>
+          <div class="field">
+            <input name="subtitle" placeholder=" " autocomplete="off" />
+            <label>Subtitle</label>
+          </div>
+          <div class="field">
+            <textarea name="desc" placeholder=" "></textarea>
+            <label>Description</label>
+          </div>
+          <div class="field">
+            <textarea name="features" placeholder=" " rows="2"></textarea>
+            <label>Features (one per line)</label>
+          </div>
+          <div class="field">
+            <textarea name="docs" placeholder=" " rows="2"></textarea>
+            <label>Docs (Title | URL per line or just URL)</label>
+          </div>
+          <div class="color-row">
+            <div class="field">
+              <input type="color" name="bg" value="#ffffff" />
+              <label style="top: -9px; font-size: 12px">Popup BG</label>
+            </div>
+            <div class="field">
+              <input type="color" name="hover" value="#ffe6e6" />
+              <label style="top: -9px; font-size: 12px">Hover</label>
+            </div>
+            <div class="field">
+              <input type="color" name="border" value="#ff0000" />
+              <label style="top: -9px; font-size: 12px">Border</label>
+            </div>
+          </div>
+        </div>
+        <footer>
+          <button type="button" class="btn cancel" id="metaCancel">
+            Cancel
+          </button>
+          <button type="submit" class="btn save">Save</button>
+        </footer>
+      </form>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div
+      id="fbModal"
+      class="modal hide"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fbTitle"
+      tabindex="-1"
+    >
+      <div
+        class="card"
+        style="height: 70vh; display: flex; flex-direction: column"
+      >
+        <header id="fbTitle">
+          User Feedback
+          <button type="button" class="close" aria-label="Close">
+            &times;
+          </button>
+        </header>
+        <div
+          class="body"
+          id="fbList"
+          style="flex-grow: 1; overflow-y: auto"
+        >
+          Loading…
+        </div>
+        <footer
+          style="
+            flex-shrink: 0;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: flex-end;
+          "
+        >
+          <button class="btn cancel" id="fbClose">Close</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Bulk Metadata Editor -->
+    <div id="bulkEditor" aria-live="polite">
+      <div id="bulkHead">
+        <div id="bulkTitle">Bulk Metadata Editor</div>
+        <div id="bulkActions">
+          <button
+            id="bulkSaveBtn"
+            title="Save changes to this map"
+          >
+            Save changes
+          </button>
+          <button id="bulkCloseBtn" title="Close editor">×</button>
+        </div>
+      </div>
+
+      <div id="bulkBody">
+        <table id="bulkTable" aria-label="Bulk metadata editor">
+          <thead>
+            <tr>
+              <th>Area Code</th>
+              <th>Title</th>
+              <th>Subtitle</th>
+              <th>Description</th>
+              <th>Features (comma separated)</th>
+              <th>Docs (Title|URL or URL, comma separated)</th>
+              <th>Popup BG</th>
+              <th>Hover Fill</th>
+              <th>Border</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="bulkFooter">
+        <button id="exportMetaBtn" type="button">Export JSON</button>
+        <button id="importMetaBtn" type="button">Import JSON</button>
+        <input
+          type="file"
+          id="importMetaFile"
+          accept=".json"
+          style="display: none"
+        />
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@geoman-io/leaflet-geoman-free@2.18.3/dist/leaflet-geoman.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+      if (window["pdfjsLib"]) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      }
+    </script>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+
+      /* Leaflet / Geoman */
+      const map = L.map("map", {
+        crs: L.CRS.Simple,
+        minZoom: -5,
+        maxZoom: 5,
+        zoomSnap: 0.25,
+        zoomDelta: 0.25,
+        preferCanvas: true,
+        inertia: true,
+        zoomAnimation: true,
+      });
+      map.zoomControl.setPosition("topright");
+
+      const drawn = L.featureGroup({
+        renderer: L.canvas({ padding: 0.5 }),
+      }).addTo(map);
+
+      map.pm.addControls({
+        position: "topleft",
+        drawPolygon: true,
+        drawRectangle: true,
+        editMode: true,
+        dragMode: true,
+        cutPolygon: true,
+        removalMode: true,
+        drawMarker: false,
+        drawPolyline: false,
+        drawCircle: false,
+      });
+
+      /* DOM */
+      const svgFile = $("#svgFile");
+      const mapName = $("#mapName");
+      const mapSelect = $("#mapSelect");
+      const saveBtn = $("#saveBtn");
+      const delBtn = $("#delBtn");
+      const loadingSpinner = $("#loadingSpinner");
+      const metaModal = $("#metaModal");
+      const metaForm = $("#metaForm");
+      const fbModal = $("#fbModal");
+      const fbList = $("#fbList");
+      const fbBtn = $("#fbBtn");
+      const fbCnt = $("#fbCnt");
+      const bulkEditor = $("#bulkEditor");
+      const bulkTableBody = bulkEditor.querySelector("tbody");
+      const exportMetaBtn = $("#exportMetaBtn");
+      const importMetaBtn = $("#importMetaBtn");
+      const importMetaFile = $("#importMetaFile");
+      const versionWrapper = $("#versionWrapper");
+      const versionSelect = $("#versionSelect");
+      const rollbackBtn = $("#rollbackBtn");
+      const toggleBulkBtn = $("#toggleBulkBtn");
+      const bulkSaveBtn = $("#bulkSaveBtn");
+      const bulkCloseBtn = $("#bulkCloseBtn");
+
+      let bg = null;
+      let areaData = {};
+      let editingLayer = null;
+
+      /* Spinner */
+      let spinnerTimer = null;
+      function showLoading() {
+        loadingSpinner.style.display = "block";
+        clearTimeout(spinnerTimer);
+        spinnerTimer = setTimeout(hideLoading, 20000);
+      }
+      function hideLoading() {
+        loadingSpinner.style.display = "none";
+        if (spinnerTimer) {
+          clearTimeout(spinnerTimer);
+          spinnerTimer = null;
+        }
+      }
+
+      /* Doc helpers: accept "Title|URL" OR just "URL" */
+      function inferTitleFromURL(url) {
+        try {
+          const u = new URL(url, location.origin);
+          const last =
+            u.pathname.split("/").filter(Boolean).pop() || u.hostname;
+          return (
+            decodeURIComponent(last)
+              .replace(/\.[a-z0-9]+$/i, "")
+              .replace(/[-_]+/g, " ")
+              .trim() || u.hostname
+          );
+        } catch {
+          return "Document";
+        }
+      }
+
+      function toDocObj(str, idx = 1) {
+        const raw = String(str || "").trim();
+        if (!raw) return null;
+
+        if (raw.includes("|")) {
+          const parts = raw.split("|");
+          const url = (parts.pop() || "").trim();
+          const title =
+            parts.join("|").trim() || inferTitleFromURL(url) || `Document ${idx}`;
+          if (!url) return null;
+          return { title, url };
+        }
+
+        const url = raw;
+        const title = inferTitleFromURL(url) || `Document ${idx}`;
+        return { title, url };
+      }
+
+      /* Bulk editor toggle/close */
+      let bulkPinned = false;
+      function setBulkVisibility() {
+        if (!areaData || Object.keys(areaData).length === 0) {
+          bulkEditor.style.display = "none";
+          toggleBulkBtn.classList.remove("active");
+          toggleBulkBtn.setAttribute("aria-expanded", "false");
+          return;
+        }
+        bulkEditor.style.display = bulkPinned ? "block" : "none";
+        toggleBulkBtn.classList.toggle("active", bulkPinned);
+        toggleBulkBtn.setAttribute("aria-expanded", String(bulkPinned));
+      }
+      toggleBulkBtn.onclick = () => {
+        bulkPinned = !bulkPinned;
+        setBulkVisibility();
+      };
+      bulkCloseBtn.onclick = () => {
+        bulkPinned = false;
+        setBulkVisibility();
+      };
+
+      /* File → dataURL helpers */
+      function fileToDataURL(file) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = (e) => resolve(e.target.result);
+          r.onerror = reject;
+          r.readAsDataURL(file);
+        });
+      }
+
+      async function getImageSize(dataUrl) {
+        return new Promise((res) => {
+          const img = new Image();
+          img.onload = () =>
+            res({ w: img.naturalWidth || 0, h: img.naturalHeight || 0 });
+          img.onerror = () => res({ w: 0, h: 0 });
+          img.src = dataUrl;
+        });
+      }
+
+      async function getSvgSizeByParsing(file) {
+        const text = await file.text();
+        const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+        const svg = doc.documentElement;
+        let w =
+          parseFloat((svg.getAttribute("width") || "").replace(/[^0-9.]+/g, "")) ||
+          0;
+        let h =
+          parseFloat(
+            (svg.getAttribute("height") || "").replace(/[^0-9.]+/g, "")
+          ) || 0;
+        if ((!w || !h) && svg.getAttribute("viewBox")) {
+          const vb = svg.getAttribute("viewBox").trim().split(/[\s,]+/).map(Number);
+          if (vb.length === 4) {
+            w = vb[2];
+            h = vb[3];
+          }
+        }
+        if (!w || !h) throw new Error("SVG has no width/height or viewBox");
+        return { w, h };
+      }
+
+      async function renderPdfFirstPageToDataURL(file) {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = viewport.width | 0;
+        canvas.height = viewport.height | 0;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        return {
+          dataUrl: canvas.toDataURL("image/jpeg", 0.95),
+          w: canvas.width,
+          h: canvas.height,
+        };
+      }
+
+      /* Style polygons */
+      function styleLayer(l) {
+        const d = areaData[l.feature.properties.id] || {};
+        l.setStyle({
+          color: d.border || "#f00",
+          weight: 2,
+          fillColor: d.bg || "#fff",
+          fillOpacity: 0.25,
+        });
+        l.off("mouseover mouseout").on({
+          mouseover: () => l.setStyle({ fillColor: d.hover || "#ffe6e6" }),
+          mouseout: () => l.setStyle({ fillColor: d.bg || "#fff" }),
+        });
+      }
+
+      function syncDrawn() {
+        drawn.eachLayer(styleLayer);
+      }
+
+      /* Create / edit polygons */
+      map.on("pm:create", (e) => {
+        drawn.addLayer(e.layer);
+        const id = prompt("Area Code?");
+        if (!id) {
+          drawn.removeLayer(e.layer);
+          return;
+        }
+        e.layer.feature = { type: "Feature", properties: { id } };
+        areaData[id] = {
+          id,
+          code: id,
+          bg: "#ffffff",
+          hover: "#ffe6e6",
+          border: "#ff0000",
+          features: [],
+          docs: [],
+        };
+        editingLayer = e.layer;
+        openMeta(areaData[id]);
+        buildBulkTable();
+      });
+
+      drawn.on("click", (e) => {
+        editingLayer = e.layer;
+        openMeta(areaData[e.layer.feature.properties.id] || {});
+      });
+
+      /* Meta modal open/save */
+      function resetModalPosition(modal) {
+        const card = modal.querySelector(".card");
+        if (!card) return;
+        card.style.left = "";
+        card.style.top = "";
+        card.style.transform = "";
+        card.style.margin = "";
+        card.style.position = "";
+      }
+
+      function openMeta(d) {
+        metaForm.code.value = d.code || d.id || "";
+        metaForm.title.value = d.title || "";
+        metaForm.subtitle.value = d.subtitle || "";
+        metaForm.desc.value = d.desc || "";
+        metaForm.features.value = (d.features || []).join("\n");
+        metaForm.docs.value = (d.docs || [])
+          .map((o) => `${o.title}|${o.url}`)
+          .join("\n");
+        metaForm.bg.value = d.bg || "#ffffff";
+        metaForm.hover.value = d.hover || "#ffe6e6";
+        metaForm.border.value = d.border || "#ff0000";
+        resetModalPosition(metaModal);
+        metaModal.classList.remove("hide");
+        trapFocus(metaModal);
+      }
+
+      $("#metaCancel").onclick = () => {
+        metaModal.classList.add("hide");
+        releaseFocus(metaModal);
+      };
+      metaForm.querySelector('header .close').onclick = () => {
+        metaModal.classList.add("hide");
+        releaseFocus(metaModal);
+      };
+
+      metaForm.onsubmit = (e) => {
+        e.preventDefault();
+        if (!editingLayer) return;
+
+        const id = metaForm.code.value.trim();
+        if (!id) return;
+
+        const docLines = metaForm.docs.value
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const docs = docLines.map((s, i) => toDocObj(s, i + 1)).filter(Boolean);
+
+        areaData[id] = {
+          ...(areaData[id] || {}),
+          id,
+          code: id,
+          title: metaForm.title.value.trim(),
+          subtitle: metaForm.subtitle.value.trim(),
+          desc: metaForm.desc.value.trim(),
+          features: metaForm.features.value
+            .split("\n")
+            .map((v) => v.trim())
+            .filter(Boolean),
+          docs,
+          bg: metaForm.bg.value,
+          hover: metaForm.hover.value,
+          border: metaForm.border.value,
+        };
+
+        editingLayer.feature.properties.id = id;
+        syncDrawn();
+        metaModal.classList.add("hide");
+        releaseFocus(metaModal);
+        buildBulkTable();
+      };
+
+      /* Upload background */
+      svgFile.onchange = async (e) => {
+        showLoading();
+        try {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const ext = (file.name.split(".").pop() || "").toLowerCase();
+          let dataUrl;
+          let w = 0;
+          let h = 0;
+
+          if (ext === "pdf") {
+            if (!window.pdfjsLib) throw new Error("PDF.js not loaded");
+            const out = await renderPdfFirstPageToDataURL(file);
+            dataUrl = out.dataUrl;
+            w = out.w;
+            h = out.h;
+          } else if (ext === "svg") {
+            dataUrl = await fileToDataURL(file);
+            const sizeFromImg = await getImageSize(dataUrl);
+            if (sizeFromImg.w && sizeFromImg.h) {
+              w = sizeFromImg.w;
+              h = sizeFromImg.h;
+            }
+            if (!w || !h) {
+              const p = await getSvgSizeByParsing(file);
+              w = p.w;
+              h = p.h;
+            }
+          } else if (["jpg", "jpeg", "png"].includes(ext)) {
+            dataUrl = await fileToDataURL(file);
+            const sz = await getImageSize(dataUrl);
+            w = sz.w;
+            h = sz.h;
+            if (!w || !h) throw new Error("Could not read image size");
+          } else {
+            throw new Error("Unsupported file type");
+          }
+
+          if (bg && bg.layer) {
+            map.removeLayer(bg.layer);
+            drawn.clearLayers();
+          }
+
+          bg = {
+            imgSrc: dataUrl,
+            imgW: w,
+            imgH: h,
+            layer: L.imageOverlay(dataUrl, [
+              [0, 0],
+              [h, w],
+            ]).addTo(map),
+          };
+
+          map.setMaxBounds([
+            [0, 0],
+            [h, w],
+          ]);
+          map.fitBounds([
+            [0, 0],
+            [h, w],
+          ]);
+
+          areaData = {};
+          buildBulkTable();
+          setBulkVisibility();
+          hideVersions();
+        } catch (err) {
+          console.error(err);
+          alert("Failed to load file. For PDFs, only the first page is used.");
+        } finally {
+          hideLoading();
+          e.target.value = "";
+        }
+      };
+
+      /* Map list / load */
+      async function loadList() {
+        try {
+          const names = await fetch("/api/maps/list", {
+            credentials: "same-origin",
+          }).then((r) => r.json());
+          mapSelect.innerHTML = '<option value="">Select a map</option>';
+          names.forEach((n) => {
+            const op = document.createElement("option");
+            op.value = op.textContent = n;
+            mapSelect.appendChild(op);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      mapSelect.onchange = async () => {
+        const name = mapSelect.value;
+        if (!name) return;
+
+        showLoading();
+        try {
+          const resp = await fetch(
+            "/api/maps/" + encodeURIComponent(name),
+            { credentials: "same-origin" }
+          );
+          if (!resp.ok) {
+            const t = await resp.text();
+            throw new Error(t || resp.status);
+          }
+          const d = await resp.json();
+
+          areaData = d.areaData || {};
+          drawn.clearLayers();
+          if (bg && bg.layer) map.removeLayer(bg.layer);
+
+          const img = d.imgData || {};
+          if (!img.imgSrc) {
+            alert("This map has no image.");
+            return;
+          }
+
+          bg = {
+            imgSrc: img.imgSrc,
+            imgW: img.imgW,
+            imgH: img.imgH,
+            layer: L.imageOverlay(img.imgSrc, [
+              [0, 0],
+              [img.imgH, img.imgW],
+            ]).addTo(map),
+          };
+
+          map.setMaxBounds([
+            [0, 0],
+            [bg.imgH, bg.imgW],
+          ]);
+          map.fitBounds([
+            [0, 0],
+            [bg.imgH, bg.imgW],
+          ]);
+
+          if (d.geojson) {
+            L.geoJSON(d.geojson, {
+              onEachFeature: (_, l) => drawn.addLayer(l),
+            });
+          }
+
+          syncDrawn();
+          buildBulkTable();
+          setBulkVisibility();
+          loadVersions(name);
+        } catch (err) {
+          console.error(err);
+          alert("Failed to load map. Please login as admin at /index.html.");
+        } finally {
+          hideLoading();
+        }
+      };
+
+      /* Central save (top Save & bulk Save) */
+      async function doSave() {
+        if (!bg) {
+          alert("Upload or load a map image first");
+          return;
+        }
+        const name = (mapName.value || mapSelect.value).trim();
+        if (!name) {
+          alert("Enter/select map name");
+          return;
+        }
+        mapSelect.value = name;
+
+        showLoading();
+        try {
+          const resp = await fetch("/api/maps/save", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name,
+              geojson: drawn.toGeoJSON(),
+              areaData,
+              imgData: {
+                imgSrc: bg.imgSrc,
+                imgW: bg.imgW,
+                imgH: bg.imgH,
+              },
+            }),
+          });
+
+          const data = await resp.json().catch(() => ({}));
+          if (resp.status === 401 || resp.status === 403) {
+            alert("Please log in as admin at /index.html");
+            return;
+          }
+          if (!resp.ok || !data.ok) throw new Error("Save failed");
+
+          alert("Saved");
+          await loadList();
+          await loadVersions(name);
+        } catch (e) {
+          console.error(e);
+          alert("Save failed.");
+        } finally {
+          hideLoading();
+        }
+      }
+
+      saveBtn.onclick = doSave;
+      bulkSaveBtn.onclick = doSave;
+
+      /* Delete */
+      delBtn.onclick = async () => {
+        const name = mapSelect.value.trim();
+        if (!name) {
+          alert("Select a map");
+          return;
+        }
+        if (!confirm(`Delete "${name}"?`)) return;
+
+        showLoading();
+        try {
+          const resp = await fetch(
+            "/api/maps/" + encodeURIComponent(name),
+            { method: "DELETE", credentials: "same-origin" }
+          );
+          if (resp.status === 401 || resp.status === 403) {
+            alert("Please log in as admin at /index.html");
+            return;
+          }
+          if (!resp.ok) throw new Error("Delete failed");
+
+          drawn.clearLayers();
+          if (bg && bg.layer) map.removeLayer(bg.layer);
+          bg = null;
+          areaData = {};
+          mapSelect.value = "";
+          mapName.value = "";
+
+          buildBulkTable();
+          setBulkVisibility();
+          hideVersions();
+          await loadList();
+        } catch (e) {
+          console.error(e);
+          alert("Delete failed.");
+        } finally {
+          hideLoading();
+        }
+      };
+
+      /* Feedback (cached/fast) */
+      let fbCache = [];
+      async function refreshFb() {
+        try {
+          const rows = await fetch("/api/feedback/list", {
+            credentials: "same-origin",
+          }).then((r) => (r.ok ? r.json() : []));
+          fbCache = Array.isArray(rows) ? rows : [];
+          fbCnt.textContent = fbCache.length;
+          if (!fbModal.classList.contains("hide")) renderFb(fbCache);
+        } catch {
+          fbCache = [];
+          fbCnt.textContent = "0";
+        }
+      }
+
+      function renderFb(rows) {
+        if (!Array.isArray(rows) || !rows.length) {
+          fbList.innerHTML = "<em>No feedback</em>";
+          return;
+        }
+        fbList.innerHTML = rows
+          .map((r) => {
+            const ts = new Date(r.created).toLocaleString();
+            let body = r.note || "";
+            try {
+              const j = JSON.parse(r.note);
+              if (j && typeof j === "object") {
+                body =
+                  `<div><strong>Area Code:</strong> ${j.code || "-"}</div>` +
+                  (j.desc ? `<div><strong>Description:</strong> ${j.desc}</div>` : "") +
+                  (Array.isArray(j.changes) && j.changes.length
+                    ? `<div><strong>Key Changes:</strong><ul style="margin:4px 0 0 18px">${j.changes
+                        .map((t) => `<li>${t}</li>`)
+                        .join("")}</ul></div>`
+                    : `<div><em>(none)</em></div>`);
+              }
+            } catch {}
+
+            const showBtn = r.geojson
+              ? `<button class="show" data-id="${r.id}">Show</button>`
+              : "";
+            return `
+              <div class="fb-row" data-row="${r.id}">
+                <strong>${r.mapName || "-"}</strong> – <small>${ts}</small><br/>${body}
+                <div class="actions">${showBtn}<button class="done" data-id="${r.id}">Done</button></div>
+              </div>`;
+          })
+          .join("");
+      }
+
+      fbBtn.onclick = async () => {
+        renderFb(fbCache);
+        fbModal.classList.remove("hide");
+        trapFocus(fbModal);
+        refreshFb();
+      };
+
+      $("#fbClose").onclick = closeFb;
+      fbModal.querySelector("header .close").onclick = closeFb;
+
+      let highlightLayer = null;
+      let highlightCloseBtn = null;
+
+      function closeFb() {
+        fbModal.classList.add("hide");
+        releaseFocus(fbModal);
+        if (highlightLayer) {
+          drawn.removeLayer(highlightLayer);
+          highlightLayer = null;
+        }
+        if (highlightCloseBtn) {
+          highlightCloseBtn.remove();
+          highlightCloseBtn = null;
+        }
+        fbList.querySelectorAll("button.show").forEach((b) => (b.textContent = "Show"));
+      }
+
+      fbList.onclick = async (e) => {
+        if (e.target.tagName !== "BUTTON") return;
+        const id = e.target.dataset.id;
+
+        if (e.target.classList.contains("done")) {
+          await fetch("/api/feedback/" + id, {
+            method: "DELETE",
+            credentials: "same-origin",
+          });
+          fbCache = fbCache.filter((x) => String(x.id) !== String(id));
+          renderFb(fbCache);
+          fbCnt.textContent = fbCache.length;
+          return;
+        }
+
+        if (e.target.classList.contains("show")) {
+          if (highlightLayer) {
+            drawn.removeLayer(highlightLayer);
+            highlightLayer = null;
+            if (highlightCloseBtn) {
+              highlightCloseBtn.remove();
+              highlightCloseBtn = null;
+            }
+            e.target.textContent = "Show";
+            return;
+          }
+
+          const row = fbCache.find((x) => String(x.id) === String(id));
+          if (row && row.geojson) {
+            const gj =
+              typeof row.geojson === "string" ? JSON.parse(row.geojson) : row.geojson;
+            highlightLayer = L.geoJSON(gj, {
+              style: { color: "#fd7e14", weight: 3 },
+            }).addTo(drawn);
+            e.target.textContent = "Hide";
+            addHighlightCloseBtn();
+            fbModal.classList.add("hide");
+            releaseFocus(fbModal);
+          }
+        }
+      };
+
+      function addHighlightCloseBtn() {
+        if (highlightCloseBtn) highlightCloseBtn.remove();
+        highlightCloseBtn = L.control({ position: "topright" });
+        highlightCloseBtn.onAdd = function () {
+          const btn = L.DomUtil.create("button", "highlight-close-btn");
+          btn.innerHTML = "&times;";
+          btn.title = "Close highlight";
+          btn.style.cssText =
+            "background:white;border:none;padding:4px 10px;font-size:24px;cursor:pointer;border-radius:4px;box-shadow:0 0 6px rgba(0,0,0,.3);user-select:none;margin-top:-8px;margin-right:8px;";
+          btn.onclick = () => {
+            if (highlightLayer) {
+              drawn.removeLayer(highlightLayer);
+              highlightLayer = null;
+            }
+            if (highlightCloseBtn) {
+              highlightCloseBtn.remove();
+              highlightCloseBtn = null;
+            }
+            fbList
+              .querySelectorAll("button.show")
+              .forEach((b) => (b.textContent = "Show"));
+          };
+          return btn;
+        };
+        highlightCloseBtn.addTo(map);
+      }
+
+      /* Bulk table (accept URL-only docs) */
+      function buildBulkTable() {
+        bulkTableBody.innerHTML = "";
+
+        if (!areaData || Object.keys(areaData).length === 0) {
+          setBulkVisibility();
+          return;
+        }
+
+        Object.values(areaData).forEach((item) => {
+          const key = item.code || item.id;
+          const tr = document.createElement("tr");
+
+          const tdCode = document.createElement("td");
+          tdCode.textContent = key;
+          tr.appendChild(tdCode);
+
+          const mkText = (val, cb) => {
+            const td = document.createElement("td");
+            const inp = document.createElement("input");
+            inp.type = "text";
+            inp.value = val || "";
+            inp.onchange = (e) => cb(e.target.value);
+            td.appendChild(inp);
+            return td;
+          };
+
+          tr.appendChild(
+            mkText(item.title, (v) => {
+              areaData[key].title = v;
+              syncDrawn();
+            })
+          );
+          tr.appendChild(
+            mkText(item.subtitle, (v) => {
+              areaData[key].subtitle = v;
+            })
+          );
+          tr.appendChild(
+            mkText(item.desc, (v) => {
+              areaData[key].desc = v;
+            })
+          );
+
+          const tdFeat = document.createElement("td");
+          const inFeat = document.createElement("input");
+          inFeat.type = "text";
+          inFeat.value = (item.features || []).join(", ");
+          inFeat.onchange = (e) => {
+            areaData[key].features = e.target.value
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean);
+          };
+          tdFeat.appendChild(inFeat);
+          tr.appendChild(tdFeat);
+
+          const tdDocs = document.createElement("td");
+          const inDocs = document.createElement("input");
+          inDocs.type = "text";
+          inDocs.value = (item.docs || [])
+            .map((d) => `${d.title}|${d.url}`)
+            .join(", ");
+          inDocs.placeholder =
+            "e.g. Spec|https://…/file.pdf OR https://…/file.pdf";
+          inDocs.onchange = (e) => {
+            const parts = e.target.value.split(/\s*,\s*/).filter(Boolean);
+            areaData[key].docs = parts
+              .map((p, i) => toDocObj(p, i + 1))
+              .filter(Boolean);
+          };
+          tdDocs.appendChild(inDocs);
+          tr.appendChild(tdDocs);
+
+          const mkColor = (val, cb) => {
+            const td = document.createElement("td");
+            const inp = document.createElement("input");
+            inp.type = "color";
+            inp.value = val || "#ffffff";
+            inp.onchange = (e) => cb(e.target.value);
+            td.appendChild(inp);
+            return td;
+          };
+
+          tr.appendChild(
+            mkColor(item.bg || "#ffffff", (v) => {
+              areaData[key].bg = v;
+              syncDrawn();
+            })
+          );
+          tr.appendChild(
+            mkColor(item.hover || "#ffe6e6", (v) => {
+              areaData[key].hover = v;
+              syncDrawn();
+            })
+          );
+          tr.appendChild(
+            mkColor(item.border || "#ff0000", (v) => {
+              areaData[key].border = v;
+              syncDrawn();
+            })
+          );
+
+          bulkTableBody.appendChild(tr);
+        });
+
+        setBulkVisibility();
+      }
+
+      /* Export / Import */
+      exportMetaBtn.onclick = () => {
+        const dataStr =
+          "data:text/json;charset=utf-8," +
+          encodeURIComponent(JSON.stringify(areaData, null, 2));
+        const a = document.createElement("a");
+        a.href = dataStr;
+        a.download = `metadata_${mapSelect.value || "map"}.json`;
+        a.click();
+      };
+
+      importMetaBtn.onclick = () => importMetaFile.click();
+
+      importMetaFile.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const imported = JSON.parse(ev.target.result);
+            if (typeof imported === "object") {
+              areaData = imported;
+              syncDrawn();
+              buildBulkTable();
+              alert("Metadata imported.");
+            } else {
+              alert("Invalid JSON");
+            }
+          } catch {
+            alert("Failed to parse JSON");
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+      };
+
+      /* Versions */
+      async function loadVersions(name) {
+        if (!name) {
+          versionWrapper.style.display = "none";
+          versionSelect.innerHTML =
+            '<option value="">Select version</option>';
+          return;
+        }
+        try {
+          const versions = await fetch(
+            `/api/maps/${encodeURIComponent(name)}/versions`,
+            { credentials: "same-origin" }
+          ).then((r) => (r.ok ? r.json() : []));
+          versionSelect.innerHTML =
+            '<option value="">Select version</option>';
+          (versions || []).forEach((v) => {
+            const o = document.createElement("option");
+            o.value = v.id;
+            o.textContent = new Date(v.savedAt).toLocaleString();
+            versionSelect.appendChild(o);
+          });
+          versionWrapper.style.display =
+            versions && versions.length ? "flex" : "none";
+        } catch {
+          versionWrapper.style.display = "none";
+        }
+      }
+
+      function hideVersions() {
+        versionWrapper.style.display = "none";
+        versionSelect.innerHTML =
+          '<option value="">Select version</option>';
+      }
+
+      rollbackBtn.onclick = async () => {
+        const id = versionSelect.value;
+        const name = mapSelect.value;
+        if (!id || !name) {
+          alert("Select a version and map.");
+          return;
+        }
+
+        showLoading();
+        try {
+          const resp = await fetch(
+            `/api/maps/${encodeURIComponent(name)}/rollback`,
+            {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: Number(id) }),
+            }
+          );
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error("Rollback failed");
+          alert("Rollback successful");
+          mapSelect.onchange();
+        } catch (e) {
+          console.error(e);
+          alert("Rollback failed.");
+        } finally {
+          hideLoading();
+        }
+      };
+
+      /* Focus trap + draggable */
+      function trapFocus(modal) {
+        const f = modal.querySelectorAll(
+          'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])'
+        );
+        if (!f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+
+        function onKey(e) {
+          if (e.key !== "Tab") return;
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        }
+
+        modal.addEventListener("keydown", onKey);
+        first.focus();
+        modal._removeTrap = () => modal.removeEventListener("keydown", onKey);
+      }
+
+      function releaseFocus(modal) {
+        if (modal._removeTrap) {
+          modal._removeTrap();
+          modal._removeTrap = null;
+        }
+      }
+
+      function makeModalDraggable(modal) {
+        const card = modal.querySelector(".card");
+        const header = card?.querySelector("header");
+        if (!header) return;
+
+        let dragging = false;
+        let x0, y0, l0, t0;
+        header.style.cursor = "move";
+
+        header.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          dragging = true;
+          x0 = e.clientX;
+          y0 = e.clientY;
+          const r = card.getBoundingClientRect();
+          l0 = r.left;
+          t0 = r.top;
+          map.dragging.disable();
+          map.touchZoom.disable();
+          map.doubleClickZoom.disable();
+          document.body.style.userSelect = "none";
+          modal.style.pointerEvents = "none";
+          card.style.pointerEvents = "auto";
+        });
+
+        window.addEventListener("mouseup", () => {
+          if (!dragging) return;
+          dragging = false;
+          map.dragging.enable();
+          map.touchZoom.enable();
+          map.doubleClickZoom.enable();
+          document.body.style.userSelect = "";
+          modal.style.pointerEvents = "auto";
+        });
+
+        window.addEventListener("mousemove", (e) => {
+          if (!dragging) return;
+          e.preventDefault();
+
+          let dx = e.clientX - x0;
+          let dy = e.clientY - y0;
+
+          const W = innerWidth;
+          const H = innerHeight;
+          const rect = card.getBoundingClientRect();
+          let L = l0 + dx;
+          let T = t0 + dy;
+
+          L = Math.min(Math.max(0, L), W - rect.width);
+          T = Math.min(Math.max(0, T), H - rect.height);
+
+          card.style.position = "fixed";
+          card.style.left = L + "px";
+          card.style.top = T + "px";
+          card.style.margin = "0";
+          card.style.transform = "none";
+        });
+      }
+
+      makeModalDraggable(metaModal);
+      makeModalDraggable(fbModal);
+
+      /* Init */
+      loadList();
+      refreshFb();
+      $("#brandLogoAdmin").onclick = () => location.reload();
+    </script>
+  </body>
+</html>
